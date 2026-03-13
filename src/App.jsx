@@ -5,11 +5,10 @@ export default function App() {
   const [recipe, setRecipe] = useState([]);
   const [newMaterialId, setNewMaterialId] = useState('feldspar-potash');
   const [newAmount, setNewAmount] = useState('');
-  const [activeTab, setActiveTab] = useState('calculator'); // calculator, myRecipes, library
+  const [activeTab, setActiveTab] = useState('calculator');
   const [recipeName, setRecipeName] = useState('');
   const [recipeNotes, setRecipeNotes] = useState('');
   const [savedRecipes, setSavedRecipes] = useState([]);
-  const [editingRecipeId, setEditingRecipeId] = useState(null);
 
   // Material database
   const materialsDB = [
@@ -32,7 +31,6 @@ export default function App() {
     { id: 'copper', name: 'Copper Carbonate', type: 'Colorant', oxides: { CuO: 0.799 }, cost: 'Medium' },
   ];
 
-  // Pre-loaded cone 6 recipes
   const suggestedRecipes = [
     {
       id: 'clear-matte',
@@ -175,13 +173,13 @@ export default function App() {
     }
   };
 
-  const calculateUMF = (recipeData) => {
-    if (recipeData.length === 0) return null;
+  // Calculate UMF - moved inside useMemo to avoid dependency issues
+  const umfResult = useMemo(() => {
+    if (recipe.length === 0) return null;
 
     let totalOxides = {};
-    let totalMoles = 0;
 
-    recipeData.forEach(item => {
+    recipe.forEach(item => {
       const material = materialsDB.find(m => m.id === item.materialId);
       if (!material) return;
 
@@ -191,7 +189,6 @@ export default function App() {
         const moles = weight / mw;
         
         totalOxides[oxide] = (totalOxides[oxide] || 0) + moles;
-        totalMoles += moles;
       });
     });
 
@@ -207,9 +204,7 @@ export default function App() {
     });
 
     return { umf, roMoles };
-  };
-
-  const umfResult = useMemo(() => calculateUMF(recipe), [recipe]);
+  }, [recipe]);
 
   const addMaterial = () => {
     if (!newAmount || isNaN(newAmount) || parseFloat(newAmount) <= 0) return;
