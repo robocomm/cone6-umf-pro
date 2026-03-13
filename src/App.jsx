@@ -1,6 +1,144 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Plus, Download, Upload, Copy, BookOpen } from 'lucide-react';
 
+// Move constants OUTSIDE the component to prevent recreation on every render
+const materialsDB = [
+  { id: 'feldspar-potash', name: 'Potassium Feldspar', type: 'Feldspar', oxides: { K2O: 0.118, Al2O3: 0.184, SiO2: 0.647 }, cost: 'Low' },
+  { id: 'feldspar-soda', name: 'Sodium Feldspar', type: 'Feldspar', oxides: { Na2O: 0.110, Al2O3: 0.195, SiO2: 0.684 }, cost: 'Low' },
+  { id: 'whiting', name: 'Whiting (CaCO3)', type: 'Flux', oxides: { CaO: 0.560 }, cost: 'Very Low' },
+  { id: 'bone-ash', name: 'Bone Ash', type: 'Flux', oxides: { CaO: 0.500, P2O5: 0.350 }, cost: 'High' },
+  { id: 'talc', name: 'Talc', type: 'Flux', oxides: { MgO: 0.317, SiO2: 0.636 }, cost: 'Low' },
+  { id: 'dolomite', name: 'Dolomite', type: 'Flux', oxides: { CaO: 0.304, MgO: 0.219 }, cost: 'Low' },
+  { id: 'soda-ash', name: 'Soda Ash (Na2CO3)', type: 'Flux', oxides: { Na2O: 0.585 }, cost: 'Low' },
+  { id: 'strontium', name: 'Strontium Carbonate', type: 'Flux', oxides: { SrO: 0.704 }, cost: 'Medium' },
+  { id: 'kaolin-epk', name: 'Kaolin (EPK)', type: 'Clay', oxides: { Al2O3: 0.395, SiO2: 0.458, K2O: 0.006 }, cost: 'Low' },
+  { id: 'ball-clay', name: 'Ball Clay', type: 'Clay', oxides: { Al2O3: 0.370, SiO2: 0.500, K2O: 0.008, Fe2O3: 0.012 }, cost: 'Low' },
+  { id: 'bentonite', name: 'Bentonite', type: 'Clay', oxides: { Al2O3: 0.439, SiO2: 0.499, K2O: 0.010 }, cost: 'Medium' },
+  { id: 'silica', name: 'Silica (SiO2)', type: 'Silica', oxides: { SiO2: 1.000 }, cost: 'Low' },
+  { id: 'tin', name: 'Tin Oxide', type: 'Opacifier', oxides: { SnO2: 1.000 }, cost: 'Very High' },
+  { id: 'zircon', name: 'Zircon (Zircopax)', type: 'Opacifier', oxides: { ZrO2: 0.672, SiO2: 0.328 }, cost: 'Medium' },
+  { id: 'iron-oxide', name: 'Iron Oxide (Fe2O3)', type: 'Colorant', oxides: { Fe2O3: 1.000 }, cost: 'Low' },
+  { id: 'cobalt', name: 'Cobalt Carbonate', type: 'Colorant', oxides: { CoO: 0.774 }, cost: 'High' },
+  { id: 'copper', name: 'Copper Carbonate', type: 'Colorant', oxides: { CuO: 0.799 }, cost: 'Medium' },
+];
+
+const suggestedRecipes = [
+  {
+    id: 'clear-matte',
+    name: 'Cone 6 Clear Matte',
+    description: 'Classic satin clear glaze. Perfect base for testing colorants.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 30 },
+      { materialId: 'whiting', amount: 25 },
+      { materialId: 'kaolin-epk', amount: 20 },
+      { materialId: 'silica', amount: 25 }
+    ],
+    notes: 'Reliable matte surface. Slight crazing possible—add 2% bentonite if needed.',
+    surface: 'Matte'
+  },
+  {
+    id: 'satin-clear',
+    name: 'Cone 6 Satin Clear',
+    description: 'Smooth, silky clear glaze with subtle sheen.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 35 },
+      { materialId: 'whiting', amount: 20 },
+      { materialId: 'talc', amount: 8 },
+      { materialId: 'kaolin-epk', amount: 18 },
+      { materialId: 'silica', amount: 19 }
+    ],
+    notes: 'Excellent base for cobalt and other oxides. Very stable.',
+    surface: 'Satin'
+  },
+  {
+    id: 'glossy-clear',
+    name: 'Cone 6 Glossy Clear',
+    description: 'Bright glossy clear. Good for bright colorants.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 40 },
+      { materialId: 'feldspar-soda', amount: 10 },
+      { materialId: 'whiting', amount: 22 },
+      { materialId: 'kaolin-epk', amount: 15 },
+      { materialId: 'silica', amount: 13 }
+    ],
+    notes: 'Runs slightly. Avoid on vertical surfaces above 10 degrees.',
+    surface: 'Glossy'
+  },
+  {
+    id: 'matt-white',
+    name: 'Cone 6 Matte White',
+    description: 'Opaque white matte glaze.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 28 },
+      { materialId: 'whiting', amount: 27 },
+      { materialId: 'kaolin-epk', amount: 22 },
+      { materialId: 'silica', amount: 20 },
+      { materialId: 'zircon', amount: 3 }
+    ],
+    notes: 'Beautiful warm white. Zircon provides opacity. Can substitute tin for cooler white.',
+    surface: 'Matte White'
+  },
+  {
+    id: 'iron-matte',
+    name: 'Cone 6 Iron Matte',
+    description: 'Warm brown matte with iron oxide.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 30 },
+      { materialId: 'whiting', amount: 25 },
+      { materialId: 'talc', amount: 10 },
+      { materialId: 'kaolin-epk', amount: 20 },
+      { materialId: 'silica', amount: 13 },
+      { materialId: 'iron-oxide', amount: 2 }
+    ],
+    notes: 'Rich brown. Increase iron to 3% for darker tones. Decrease talc if too matte.',
+    surface: 'Matte Brown'
+  },
+  {
+    id: 'cobalt-blue',
+    name: 'Cone 6 Cobalt Blue Base',
+    description: 'Bright cobalt blue satin glaze.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 35 },
+      { materialId: 'whiting', amount: 20 },
+      { materialId: 'talc', amount: 5 },
+      { materialId: 'kaolin-epk', amount: 18 },
+      { materialId: 'silica', amount: 20 },
+      { materialId: 'cobalt', amount: 0.5 }
+    ],
+    notes: 'Start with 0.5% cobalt. Increase for deeper blue (max ~1.5%). Very stable.',
+    surface: 'Satin Blue'
+  },
+  {
+    id: 'testing-base',
+    name: 'Cone 6 Testing Base',
+    description: 'Neutral base for testing new materials and colorants.',
+    ingredients: [
+      { materialId: 'feldspar-potash', amount: 32 },
+      { materialId: 'whiting', amount: 23 },
+      { materialId: 'kaolin-epk', amount: 20 },
+      { materialId: 'silica', amount: 20 },
+      { materialId: 'bentonite', amount: 1 }
+    ],
+    notes: 'Stable, reliable base. Bentonite improves suspension.',
+    surface: 'Matte-Satin'
+  }
+];
+
+const cone6Targets = {
+  CaO: { min: 0.70, target: 0.75, max: 0.85, label: 'Calcium' },
+  MgO: { min: 0.00, target: 0.05, max: 0.10, label: 'Magnesium' },
+  K2O: { min: 0.05, target: 0.10, max: 0.15, label: 'Potassium' },
+  Na2O: { min: 0.00, target: 0.05, max: 0.10, label: 'Sodium' },
+  Al2O3: { min: 0.25, target: 0.30, max: 0.35, label: 'Alumina' },
+  SiO2: { min: 3.0, target: 3.5, max: 4.5, label: 'Silica' },
+};
+
+const molecularWeights = {
+  K2O: 94.2, Na2O: 61.98, CaO: 56.08, MgO: 40.30, SrO: 103.64,
+  Al2O3: 101.96, SiO2: 60.08, Fe2O3: 159.69, CoO: 74.93, CuO: 79.55,
+  SnO2: 150.71, ZrO2: 123.22, P2O5: 141.94
+};
+
 export default function App() {
   const [recipe, setRecipe] = useState([]);
   const [newMaterialId, setNewMaterialId] = useState('feldspar-potash');
@@ -9,144 +147,6 @@ export default function App() {
   const [recipeName, setRecipeName] = useState('');
   const [recipeNotes, setRecipeNotes] = useState('');
   const [savedRecipes, setSavedRecipes] = useState([]);
-
-  // Material database
-  const materialsDB = [
-    { id: 'feldspar-potash', name: 'Potassium Feldspar', type: 'Feldspar', oxides: { K2O: 0.118, Al2O3: 0.184, SiO2: 0.647 }, cost: 'Low' },
-    { id: 'feldspar-soda', name: 'Sodium Feldspar', type: 'Feldspar', oxides: { Na2O: 0.110, Al2O3: 0.195, SiO2: 0.684 }, cost: 'Low' },
-    { id: 'whiting', name: 'Whiting (CaCO3)', type: 'Flux', oxides: { CaO: 0.560 }, cost: 'Very Low' },
-    { id: 'bone-ash', name: 'Bone Ash', type: 'Flux', oxides: { CaO: 0.500, P2O5: 0.350 }, cost: 'High' },
-    { id: 'talc', name: 'Talc', type: 'Flux', oxides: { MgO: 0.317, SiO2: 0.636 }, cost: 'Low' },
-    { id: 'dolomite', name: 'Dolomite', type: 'Flux', oxides: { CaO: 0.304, MgO: 0.219 }, cost: 'Low' },
-    { id: 'soda-ash', name: 'Soda Ash (Na2CO3)', type: 'Flux', oxides: { Na2O: 0.585 }, cost: 'Low' },
-    { id: 'strontium', name: 'Strontium Carbonate', type: 'Flux', oxides: { SrO: 0.704 }, cost: 'Medium' },
-    { id: 'kaolin-epk', name: 'Kaolin (EPK)', type: 'Clay', oxides: { Al2O3: 0.395, SiO2: 0.458, K2O: 0.006 }, cost: 'Low' },
-    { id: 'ball-clay', name: 'Ball Clay', type: 'Clay', oxides: { Al2O3: 0.370, SiO2: 0.500, K2O: 0.008, Fe2O3: 0.012 }, cost: 'Low' },
-    { id: 'bentonite', name: 'Bentonite', type: 'Clay', oxides: { Al2O3: 0.439, SiO2: 0.499, K2O: 0.010 }, cost: 'Medium' },
-    { id: 'silica', name: 'Silica (SiO2)', type: 'Silica', oxides: { SiO2: 1.000 }, cost: 'Low' },
-    { id: 'tin', name: 'Tin Oxide', type: 'Opacifier', oxides: { SnO2: 1.000 }, cost: 'Very High' },
-    { id: 'zircon', name: 'Zircon (Zircopax)', type: 'Opacifier', oxides: { ZrO2: 0.672, SiO2: 0.328 }, cost: 'Medium' },
-    { id: 'iron-oxide', name: 'Iron Oxide (Fe2O3)', type: 'Colorant', oxides: { Fe2O3: 1.000 }, cost: 'Low' },
-    { id: 'cobalt', name: 'Cobalt Carbonate', type: 'Colorant', oxides: { CoO: 0.774 }, cost: 'High' },
-    { id: 'copper', name: 'Copper Carbonate', type: 'Colorant', oxides: { CuO: 0.799 }, cost: 'Medium' },
-  ];
-
-  const suggestedRecipes = [
-    {
-      id: 'clear-matte',
-      name: 'Cone 6 Clear Matte',
-      description: 'Classic satin clear glaze. Perfect base for testing colorants.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 30 },
-        { materialId: 'whiting', amount: 25 },
-        { materialId: 'kaolin-epk', amount: 20 },
-        { materialId: 'silica', amount: 25 }
-      ],
-      notes: 'Reliable matte surface. Slight crazing possible—add 2% bentonite if needed.',
-      surface: 'Matte'
-    },
-    {
-      id: 'satin-clear',
-      name: 'Cone 6 Satin Clear',
-      description: 'Smooth, silky clear glaze with subtle sheen.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 35 },
-        { materialId: 'whiting', amount: 20 },
-        { materialId: 'talc', amount: 8 },
-        { materialId: 'kaolin-epk', amount: 18 },
-        { materialId: 'silica', amount: 19 }
-      ],
-      notes: 'Excellent base for cobalt and other oxides. Very stable.',
-      surface: 'Satin'
-    },
-    {
-      id: 'glossy-clear',
-      name: 'Cone 6 Glossy Clear',
-      description: 'Bright glossy clear. Good for bright colorants.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 40 },
-        { materialId: 'feldspar-soda', amount: 10 },
-        { materialId: 'whiting', amount: 22 },
-        { materialId: 'kaolin-epk', amount: 15 },
-        { materialId: 'silica', amount: 13 }
-      ],
-      notes: 'Runs slightly. Avoid on vertical surfaces above 10 degrees.',
-      surface: 'Glossy'
-    },
-    {
-      id: 'matt-white',
-      name: 'Cone 6 Matte White',
-      description: 'Opaque white matte glaze.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 28 },
-        { materialId: 'whiting', amount: 27 },
-        { materialId: 'kaolin-epk', amount: 22 },
-        { materialId: 'silica', amount: 20 },
-        { materialId: 'zircon', amount: 3 }
-      ],
-      notes: 'Beautiful warm white. Zircon provides opacity. Can substitute tin for cooler white.',
-      surface: 'Matte White'
-    },
-    {
-      id: 'iron-matte',
-      name: 'Cone 6 Iron Matte',
-      description: 'Warm brown matte with iron oxide.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 30 },
-        { materialId: 'whiting', amount: 25 },
-        { materialId: 'talc', amount: 10 },
-        { materialId: 'kaolin-epk', amount: 20 },
-        { materialId: 'silica', amount: 13 },
-        { materialId: 'iron-oxide', amount: 2 }
-      ],
-      notes: 'Rich brown. Increase iron to 3% for darker tones. Decrease talc if too matte.',
-      surface: 'Matte Brown'
-    },
-    {
-      id: 'cobalt-blue',
-      name: 'Cone 6 Cobalt Blue Base',
-      description: 'Bright cobalt blue satin glaze.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 35 },
-        { materialId: 'whiting', amount: 20 },
-        { materialId: 'talc', amount: 5 },
-        { materialId: 'kaolin-epk', amount: 18 },
-        { materialId: 'silica', amount: 20 },
-        { materialId: 'cobalt', amount: 0.5 }
-      ],
-      notes: 'Start with 0.5% cobalt. Increase for deeper blue (max ~1.5%). Very stable.',
-      surface: 'Satin Blue'
-    },
-    {
-      id: 'testing-base',
-      name: 'Cone 6 Testing Base',
-      description: 'Neutral base for testing new materials and colorants.',
-      ingredients: [
-        { materialId: 'feldspar-potash', amount: 32 },
-        { materialId: 'whiting', amount: 23 },
-        { materialId: 'kaolin-epk', amount: 20 },
-        { materialId: 'silica', amount: 20 },
-        { materialId: 'bentonite', amount: 1 }
-      ],
-      notes: 'Stable, reliable base. Bentonite improves suspension.',
-      surface: 'Matte-Satin'
-    }
-  ];
-
-  const cone6Targets = {
-    CaO: { min: 0.70, target: 0.75, max: 0.85, label: 'Calcium' },
-    MgO: { min: 0.00, target: 0.05, max: 0.10, label: 'Magnesium' },
-    K2O: { min: 0.05, target: 0.10, max: 0.15, label: 'Potassium' },
-    Na2O: { min: 0.00, target: 0.05, max: 0.10, label: 'Sodium' },
-    Al2O3: { min: 0.25, target: 0.30, max: 0.35, label: 'Alumina' },
-    SiO2: { min: 3.0, target: 3.5, max: 4.5, label: 'Silica' },
-  };
-
-  const molecularWeights = {
-    K2O: 94.2, Na2O: 61.98, CaO: 56.08, MgO: 40.30, SrO: 103.64,
-    Al2O3: 101.96, SiO2: 60.08, Fe2O3: 159.69, CoO: 74.93, CuO: 79.55,
-    SnO2: 150.71, ZrO2: 123.22, P2O5: 141.94
-  };
 
   // Load recipes from storage on mount
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function App() {
     }
   };
 
-  // Calculate UMF - moved inside useMemo to avoid dependency issues
+  // Calculate UMF - now all dependencies are stable constants outside the component
   const umfResult = useMemo(() => {
     if (recipe.length === 0) return null;
 
